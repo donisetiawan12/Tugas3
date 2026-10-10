@@ -1,0 +1,321 @@
+{
+  "name": "Tugas 3 - AI Video ke Google Drive",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Generate Video AI",
+        "formDescription": "Masukkan prompt dan URL gambar publik.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "prompt",
+              "fieldType": "textarea",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "image",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8a49baec-c31d-4266-9970-4ff1cdbe0f02",
+      "name": "Form Trigger",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -16,
+        64
+      ],
+      "webhookId": "520bab65-542d-4966-83a5-475ac828a799"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.kie.ai/api/v1/jobs/createTask",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 4c1bb22fc38801c87dd3bcd280a0f677"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "\n{\n  \"model\": \"grok-imagine-video-1-5-preview\",\n  \"input\": {\n    \"prompt\": \"{{ $json.prompt }}\",\n    \"aspect_ratio\": \"auto\",\n    \"resolution\": \"480p\",\n    \"duration\": 8\n  }\n}\n",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "5e1b2d73-ba47-4673-8b5c-60d37cea89cb",
+      "name": "HTTP Request - Generate Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 20
+      },
+      "id": "b0a57932-673e-42d3-b807-dfb359743e43",
+      "name": "Wait 20 Seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        384,
+        64
+      ],
+      "webhookId": "wait-node"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.kie.ai/api/v1/jobs/recordInfo",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "taskId",
+              "value": "={{ $('HTTP Request - Generate Video').first().json.data.taskId }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 4c1bb22fc38801c87dd3bcd280a0f677"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "a67081c8-a8c5-4b26-a87f-55d87b51d079",
+      "name": "HTTP Request - Check Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        608,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "status-success-condition",
+              "leftValue": "={{ $json.data.state }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "57c5711f-7003-48d8-a0d9-481a55c9909a",
+      "name": "IF - Status Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json.data;\n\nconst result = typeof data.resultJson === 'string'\n  ? JSON.parse(data.resultJson)\n  : data.resultJson;\n\nconst videoUrl = result.resultUrls[0];\n\nreturn [{\n  json: {\n    videoUrl,\n    fileName: 'video-ai.mp4'\n  }\n}];\n"
+      },
+      "id": "9f6ad538-08f7-444e-baf5-ea55faee6ebe",
+      "name": "Code - Parse Video URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.videoUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "31bf6a65-f503-4f4b-b901-a9731270337d",
+      "name": "HTTP Request - Download Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1232,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "name": "=video-ai-{{ $now.toFormat('yyyyLLdd-HHmmss') }}.mp4",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1jf7ZGZ_DSPwqHsKz8m7tC20dC8glCroI",
+          "mode": "list",
+          "cachedResultName": "Video-Hasil-AI",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1jf7ZGZ_DSPwqHsKz8m7tC20dC8glCroI"
+        },
+        "options": {}
+      },
+      "id": "017bac6c-c398-4023-8617-91c3cb2d714b",
+      "name": "Google Drive - Upload Video",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1456,
+        48
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "hhZM4TesdVNOtEOb",
+          "name": "Google Drive account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Form Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Generate Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Generate Video": {
+      "main": [
+        [
+          {
+            "node": "Wait 20 Seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 20 Seconds": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Check Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Check Status": {
+      "main": [
+        [
+          {
+            "node": "IF - Status Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Status Success": {
+      "main": [
+        [
+          {
+            "node": "Code - Parse Video URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 20 Seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Parse Video URL": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Download Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Download Video": {
+      "main": [
+        [
+          {
+            "node": "Google Drive - Upload Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9dffd351-9d2a-46f8-98bf-92fa35d338aa",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dc96f10ae7dc95d3c138575ba243a0a167923dbcb524841d451aadf9135d5fb3"
+  },
+  "nodeGroups": [],
+  "id": "2jXVJXAlid5StEzW",
+  "tags": []
+}
